@@ -88,18 +88,8 @@ impl<F: FieldExt> TutorialChip<F> {
             let so = meta.query_fixed(so, Rotation::cur());
             let sc = meta.query_fixed(sc, Rotation::cur());
 
-            vec![l.clone() * sl + r.clone() * sr + l * r * sm - o * so]
+            vec![l.clone() * sl + r.clone() * sr + l * r * sm - o * so + sc]
         });
-
-        // meta.create_gate("public input", |meta| {
-        //     let l = meta.query_advice(l, Rotation::cur());
-
-        //     let sl = meta.query_fixed(sl, Rotation::cur());
-
-        //     let PI = meta.query_instance(PI, Rotation::cur());
-
-        //     vec![sl * l - PI]
-        // });
 
         TutorialConfig {
             l,
@@ -150,18 +140,8 @@ impl<F: FieldExt> TutorialComposer<F> for TutorialChip<F> {
                     || values.unwrap().map(|x| x.2),
                 )?;
 
-                region.assign_fixed(
-                    || "enable multiplication",
-                    self.config.sm,
-                    0,
-                    || Value::known(F::one()),
-                )?;
-                region.assign_fixed(
-                    || "enable out",
-                    self.config.so,
-                    0,
-                    || Value::known(F::one()),
-                )?;
+                region.assign_fixed(|| "m", self.config.sm, 0, || Value::known(F::one()))?;
+                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::one()))?;
 
                 Ok((lhs.cell(), rhs.cell(), out.cell()))
             },
@@ -202,24 +182,9 @@ impl<F: FieldExt> TutorialComposer<F> for TutorialChip<F> {
                     || values.unwrap().map(|x| x.2),
                 )?;
 
-                region.assign_fixed(
-                    || "enable lhs",
-                    self.config.sl,
-                    0,
-                    || Value::known(F::one()),
-                )?;
-                region.assign_fixed(
-                    || "enable rhs",
-                    self.config.sr,
-                    0,
-                    || Value::known(F::one()),
-                )?;
-                region.assign_fixed(
-                    || "enable out",
-                    self.config.so,
-                    0,
-                    || Value::known(F::one()),
-                )?;
+                region.assign_fixed(|| "l", self.config.sl, 0, || Value::known(F::one()))?;
+                region.assign_fixed(|| "r", self.config.sr, 0, || Value::known(F::one()))?;
+                region.assign_fixed(|| "o", self.config.so, 0, || Value::known(F::one()))?;
 
                 Ok((lhs.cell(), rhs.cell(), out.cell()))
             },
