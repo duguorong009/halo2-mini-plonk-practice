@@ -96,15 +96,15 @@ impl<F: FieldExt> TutorialChip<F> {
             vec![l.clone() * sl + r.clone() * sr + l * r * sm - o * so]
         });
 
-        meta.create_gate("public input", |meta| {
-            let l = meta.query_advice(l, Rotation::cur());
+        // meta.create_gate("public input", |meta| {
+        //     let l = meta.query_advice(l, Rotation::cur());
 
-            let sl = meta.query_fixed(sl, Rotation::cur());
+        //     let sl = meta.query_fixed(sl, Rotation::cur());
 
-            let PI = meta.query_instance(PI, Rotation::cur());
+        //     let PI = meta.query_instance(PI, Rotation::cur());
 
-            vec![sl * (l - PI)]
-        });
+        //     vec![sl * l - PI]
+        // });
 
         TutorialConfig {
             l,
@@ -131,7 +131,7 @@ impl<F: FieldExt> TutorialComposer<F> for TutorialChip<F> {
     {
         let values = f();
         layouter.assign_region(
-            || "add",
+            || "multiply",
             |mut region| {
                 let lhs =
                     region.assign_advice(|| "lhs", self.config.l, 0, || values.map(|x| x.0))?;
@@ -253,14 +253,14 @@ impl<F: FieldExt> Circuit<F> for TutorialCircuit<F> {
         cs.copy(&mut layouter, a1, b1)?;
 
         let (a2, b2, c2) = cs.raw_add(&mut layouter, || {
-            x.zip(y).map(|(x, y)| (x * x, y * y, x * x * y * y))
+            x.zip(y).map(|(x, y)| (x * x, y * y, x * x + y * y))
         })?;
         cs.copy(&mut layouter, a2, c0)?;
         cs.copy(&mut layouter, b2, c1)?;
 
         let (a3, b3, c3) = cs.raw_add(&mut layouter, || {
             x.zip(y)
-                .map(|(x, y)| (x * x * y * y, consty, x * x * y * y + consty))
+                .map(|(x, y)| (x * x + y * y, consty, x * x + y * y + consty))
         })?;
         cs.copy(&mut layouter, a3, c2)?;
         cs.expose_public(&mut layouter, b3, 0)?;
@@ -268,5 +268,33 @@ impl<F: FieldExt> Circuit<F> for TutorialCircuit<F> {
         cs.expose_public(&mut layouter, c3, 1)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use halo2_proofs::{dev::MockProver, halo2curves::pasta::Fp};
+
+    use super::*;
+    #[test]
+    fn test_plonk() {
+        let k = 4;
+
+        let x = Fp::from(3);
+        let y = Fp::from(5);
+        let constant = Fp::from(1);
+
+        let z = x.square() + y.square() + constant;
+
+        let circuit = TutorialCircuit {
+            x: Value::known(x),
+            y: Value::known(y),
+            constant,
+        };
+
+        let public_input = vec![constant, z];
+
+        let prover = MockProver::run(k, &circuit, vec![public_input]).unwrap();
+        prover.assert_satisfied();
     }
 }
