@@ -239,7 +239,7 @@ impl<F: FieldExt> Circuit<F> for TutorialCircuit<F> {
         let (a0, b0, c0) = cs.raw_multiply(&mut layouter, || x.map(|x| (x, x, x * x)))?;
         cs.copy(&mut layouter, a0, b0)?;
 
-        let (a1, b1, c1) = cs.raw_multiply(&mut layouter, || x.map(|y| (y, y, y * y)))?;
+        let (a1, b1, c1) = cs.raw_multiply(&mut layouter, || y.map(|y| (y, y, y * y)))?;
         cs.copy(&mut layouter, a1, b1)?;
 
         let (a2, b2, c2) = cs.raw_add(&mut layouter, || {
