@@ -63,7 +63,7 @@ impl<F: FieldExt> TutorialChip<F> {
         }
     }
 
-    fn configure(&self, meta: &mut ConstraintSystem<F>) -> TutorialConfig {
+    fn configure(meta: &mut ConstraintSystem<F>) -> TutorialConfig {
         let l = meta.advice_column();
         let r = meta.advice_column();
         let o = meta.advice_column();
@@ -212,5 +212,61 @@ impl<F: FieldExt> TutorialComposer<F> for TutorialChip<F> {
         row: usize,
     ) -> Result<(), Error> {
         layouter.constrain_instance(cell, self.config.PI, row)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct TutorialCircuit<F: FieldExt> {
+    x: Value<F>,
+    y: Value<F>,
+    constant: F,
+}
+
+impl<F: FieldExt> Circuit<F> for TutorialCircuit<F> {
+    type Config = TutorialConfig;
+
+    type FloorPlanner = SimpleFloorPlanner;
+
+    fn without_witnesses(&self) -> Self {
+        Self::default()
+    }
+
+    fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+        TutorialChip::configure(meta)
+    }
+
+    fn synthesize(
+        &self,
+        config: Self::Config,
+        mut layouter: impl Layouter<F>,
+    ) -> Result<(), Error> {
+        let cs = TutorialChip::construct(config);
+
+        let x: Value<Assigned<F>> = self.x.into();
+        let y: Value<Assigned<F>> = self.y.into();
+        let consty = Assigned::from(self.constant);
+
+        let (a0, b0, c0) = cs.raw_multiply(&mut layouter, || x.map(|x| (x, x, x * x)))?;
+        cs.copy(&mut layouter, a0, b0)?;
+
+        let (a1, b1, c1) = cs.raw_multiply(&mut layouter, || x.map(|y| (y, y, y * y)))?;
+        cs.copy(&mut layouter, a1, b1)?;
+
+        let (a2, b2, c2) = cs.raw_add(&mut layouter, || {
+            x.zip(y).map(|(x, y)| (x * x, y * y, x * x * y * y))
+        })?;
+        cs.copy(&mut layouter, a2, c0)?;
+        cs.copy(&mut layouter, b2, c1)?;
+
+        let (a3, b3, c3) = cs.raw_add(&mut layouter, || {
+            x.zip(y)
+                .map(|(x, y)| (x * x * y * y, consty, x * x * y * y + consty))
+        })?;
+        cs.copy(&mut layouter, a3, c2)?;
+        cs.expose_public(&mut layouter, b3, 0)?;
+
+        cs.expose_public(&mut layouter, c3, 1)?;
+
+        Ok(())
     }
 }
