@@ -1,9 +1,10 @@
 use std::marker::PhantomData;
 
 use halo2_proofs::{
+    arithmetic::FieldExt,
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
     dev::MockProver,
-    halo2curves::{pasta::Fp, FieldExt},
+    pasta::Fp,
     plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance, Selector},
     poly::Rotation,
 };

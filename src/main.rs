@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use halo2_proofs::{circuit::*, halo2curves::FieldExt, plonk::*, poly::Rotation};
+use halo2_proofs::{arithmetic::FieldExt, circuit::*, plonk::*, poly::Rotation};
 
 mod simple;
 
@@ -129,16 +129,31 @@ impl<F: FieldExt> TutorialComposer<F> for TutorialChip<F> {
     where
         FM: FnMut() -> Value<(Assigned<F>, Assigned<F>, Assigned<F>)>,
     {
-        let values = f();
+        let mut values = None;
         layouter.assign_region(
             || "multiply",
             |mut region| {
-                let lhs =
-                    region.assign_advice(|| "lhs", self.config.l, 0, || values.map(|x| x.0))?;
-                let rhs =
-                    region.assign_advice(|| "rhs", self.config.r, 0, || values.map(|x| x.1))?;
-                let out =
-                    region.assign_advice(|| "out", self.config.o, 0, || values.map(|x| x.2))?;
+                let lhs = region.assign_advice(
+                    || "lhs",
+                    self.config.l,
+                    0,
+                    || {
+                        values = Some(f());
+                        values.unwrap().map(|x| x.0)
+                    },
+                )?;
+                let rhs = region.assign_advice(
+                    || "rhs",
+                    self.config.r,
+                    0,
+                    || values.unwrap().map(|x| x.1),
+                )?;
+                let out = region.assign_advice(
+                    || "out",
+                    self.config.o,
+                    0,
+                    || values.unwrap().map(|x| x.2),
+                )?;
 
                 region.assign_fixed(
                     || "enable multiplication",
@@ -166,16 +181,31 @@ impl<F: FieldExt> TutorialComposer<F> for TutorialChip<F> {
     where
         FM: FnMut() -> Value<(Assigned<F>, Assigned<F>, Assigned<F>)>,
     {
-        let values = f();
+        let mut values = None;
         layouter.assign_region(
             || "add",
             |mut region| {
-                let lhs =
-                    region.assign_advice(|| "lhs", self.config.l, 0, || values.map(|x| x.0))?;
-                let rhs =
-                    region.assign_advice(|| "rhs", self.config.r, 0, || values.map(|x| x.1))?;
-                let out =
-                    region.assign_advice(|| "out", self.config.o, 0, || values.map(|x| x.2))?;
+                let lhs = region.assign_advice(
+                    || "lhs",
+                    self.config.l,
+                    0,
+                    || {
+                        values = Some(f());
+                        values.unwrap().map(|x| x.0)
+                    },
+                )?;
+                let rhs = region.assign_advice(
+                    || "rhs",
+                    self.config.r,
+                    0,
+                    || values.unwrap().map(|x| x.1),
+                )?;
+                let out = region.assign_advice(
+                    || "out",
+                    self.config.o,
+                    0,
+                    || values.unwrap().map(|x| x.2),
+                )?;
 
                 region.assign_fixed(
                     || "enable lhs",
@@ -273,7 +303,7 @@ impl<F: FieldExt> Circuit<F> for TutorialCircuit<F> {
 
 #[cfg(test)]
 mod tests {
-    use halo2_proofs::{dev::MockProver, halo2curves::pasta::Fp};
+    use halo2_proofs::{dev::MockProver, pasta::Fp};
 
     use super::*;
     #[test]
@@ -296,5 +326,16 @@ mod tests {
 
         let prover = MockProver::run(k, &circuit, vec![public_input]).unwrap();
         prover.assert_satisfied();
+
+        // Plot the circuit
+        use plotters::prelude::*;
+        let root = BitMapBackend::new("plonk-test-layout.png", (1024, 1024)).into_drawing_area();
+        root.fill(&WHITE).unwrap();
+        let root = root
+            .titled("plonk test Layout", ("sans-serif", 60))
+            .unwrap();
+        halo2_proofs::dev::CircuitLayout::default()
+            .render(k, &circuit, &root)
+            .unwrap();
     }
 }
